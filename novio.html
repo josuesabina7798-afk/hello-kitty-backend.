@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Hello Kitty - Panel Novio 👦</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root { --pink: #FF61A6; --light: #FFB7C5; --bg: #FFF0F5; }
+        body { font-family: Arial, sans-serif; background: var(--bg); min-height: 100dvh; display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; padding: 0 0 20px; }
+
+        .header { background: var(--pink); padding: 30px 20px 20px; text-align: center; color: white; }
+        .header h1 { font-size: 18px; }
+        .header p { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+
+        .content { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+        .notif { background: #fff3cd; border: 2px solid #ffc107; padding: 14px; border-radius: 12px; font-size: 14px; color: #664d03; display: none; animation: shake 0.4s; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(6px)} 75%{transform:translateX(-6px)} }
+
+        label { font-size: 13px; font-weight: bold; color: #555; }
+        textarea { width: 100%; height: 110px; border: 2px solid var(--light); border-radius: 15px; padding: 12px; font-size: 14px; font-family: inherit; resize: none; outline: none; }
+        textarea:focus { border-color: var(--pink); }
+
+        .btn { background: var(--pink); color: white; padding: 15px; border-radius: 20px; text-align: center; font-size: 15px; font-weight: bold; cursor: pointer; border: none; width: 100%; -webkit-tap-highlight-color: transparent; }
+        .btn:active { opacity: 0.85; transform: scale(0.98); }
+
+        .hint { font-size: 12px; color: #999; text-align: center; line-height: 1.5; }
+        .status { font-size: 12px; text-align: center; padding: 8px; border-radius: 10px; }
+        .status.ok { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Tu Panel de Cuidado 👦🎀</h1>
+        <p>Cuéntale a Kitty lo que necesitas</p>
+    </div>
+
+    <div class="content">
+        <div id="notif" class="notif"></div>
+        <div id="status" class="status" style="display:none"></div>
+
+        <div>
+            <label>Chismear a Kitty:</label>
+            <br><br>
+            <textarea id="aviso" placeholder="Ej: Hoy no desayunó nada y está un poco triste..."></textarea>
+        </div>
+
+        <button class="btn" id="sendBtn">Chismear a Kitty 🎀</button>
+
+        <p class="hint">Kitty recibirá tu aviso y cuidará a tu amiga discretamente. Ella recibirá una alerta si se siente mal.</p>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const SERVER_URL = "https://hello-kitty-backend-production.up.railway.app";
+        const coupleId = "NUESTRA-PAREJA";
+
+        const socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
+        const statusDiv = document.getElementById('status');
+        const notifDiv = document.getElementById('notif');
+
+        socket.on('connect', () => showStatus("✅ Conectado a Kitty", 'ok'));
+        socket.on('disconnect', () => showStatus("🔌 Sin conexión...", 'error'));
+        socket.on('connect_error', () => showStatus("⚠️ Error de conexión", 'error'));
+
+        socket.emit('join_couple', coupleId);
+
+        socket.on('notificar_novio', (data) => {
+            notifDiv.innerText = data.mensaje;
+            notifDiv.style.display = 'block';
+        });
+
+        document.getElementById('sendBtn').addEventListener('click', enviarAviso);
+
+        function enviarAviso() {
+            const txt = document.getElementById('aviso').value.trim();
+            if (!txt) return alert("Escribe un aviso primero 🎀");
+            socket.emit('send_alert', { coupleId, content: txt });
+            document.getElementById('aviso').value = "";
+            showStatus("✅ ¡Aviso enviado! Kitty ya lo sabe 🎀", 'ok');
+        }
+
+        function showStatus(msg, type) {
+            statusDiv.innerText = msg;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
