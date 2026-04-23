@@ -1,44 +1,38 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const { getHelloKittyResponse } = require('./services/groq.service');
-const cors = require('cors');
+const Groq = require("groq-sdk");
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
-
-app.use(cors());
-app.use(express.json());
-
-const activeContexts = new Map();
-
-io.on('connection', (socket) => {
-  socket.on('join_couple', (coupleId) => { socket.join(coupleId); });
-  socket.on('send_alert', (data) => {
-    activeContexts.set(data.coupleId, { content: data.content, timestamp: Date.now() });
-    io.to(data.coupleId).emit('receive_alert', data);
-  });
-});
-
-app.post('/api/chat', async (req, res) => {
-  const { coupleId, message } = req.body;
-  const context = activeContexts.get(coupleId);
-  const isValidContext = context && (Date.now() - context.timestamp < 1000 * 60 * 60 * 12);
-
-  const kittyAIResponse = await getHelloKittyResponse(message, isValidContext ? context : null);
-
-  if (kittyAIResponse) {
-    if (isValidContext && (kittyAIResponse.includes("novio") || kittyAIResponse.includes("contó"))) {
-       activeContexts.delete(coupleId);
-    }
-    return res.json({ response: kittyAIResponse });
+const getHelloKittyResponse = async (userMessage, hiddenContext = null) => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    console.error("No se encontró GROQ_API_KEY");
+    return null;
   }
 
-  res.json({ response: "¡Hola amiga! 🎀 Mi moño se enredó un poquito, pero cuéntame más. ✨" });
-});
+  const groq = new Groq({ apiKey });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor de Hello Kitty activo en puerto ${PORT}`);
-});
+  try {
+    const systemPrompt = `Eres Hello Kitty, la mejor amiga de la usuaria. La tratas siempre de "amiga".
+    Eres dulce, leal, divertida y te encanta platicar de cualquier tema.
+    Si hay un aviso de su novio, díselo: "Amiga, ya me contó tu novio que...".
+    Usa emojis como 🎀✨♥ y frases encantadoras.`;
+
+    const messages = [{ role: "system", content: systemPrompt }];
+    if (hiddenContext) {
+      messages.push({ role: "system", content: `AVISO DEL NOVIO: ${hiddenContext.content}` });
+    }
+    messages.push({ role: "user", content: userMessage });
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages,
+      model: "llama-3.1-8b-instant",
+      temperature: 0.7,
+      max_tokens: 350,
+    });
+
+    return chatCompletion.choices[0]?.message?.content || null;
+  } catch (error) {
+    console.error("Error en Groq:", error.message);
+    return null;
+  }
+};
+
+module.exports = { getHelloKittyResponse };
