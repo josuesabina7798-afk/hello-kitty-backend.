@@ -26,21 +26,19 @@ app.post('/api/chat', async (req, res) => {
   const context = activeContexts.get(coupleId);
   const isValidContext = context && (Date.now() - context.timestamp < 1000 * 60 * 60 * 12);
 
-  // 1. Intentar obtener respuesta de la IA (Groq)
   const kittyAIResponse = await getHelloKittyResponse(message, isValidContext ? context : null);
 
   if (kittyAIResponse) {
-    // Si la IA respondió por el aviso, lo limpiamos
     if (isValidContext && (kittyAIResponse.includes("novio") || kittyAIResponse.includes("contó"))) {
        activeContexts.delete(coupleId);
     }
     return res.json({ response: kittyAIResponse });
   }
 
-  // 2. Respuesta de respaldo (si la IA falla)
-  res.json({ response: "¡Hola amiga! 🎀 Mi moño se enredó un poquito (error de IA), pero cuéntame más. ✨" });
+  res.json({ response: "¡Hola amiga! 🎀 Mi moño se enredó un poquito, pero cuéntame más. ✨" });
 });
 
-server.listen(3001, () => {
-  console.log(`Servidor Hello Kitty Inteligente (Cerebro Groq) activo en puerto 3001`);
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor de Hello Kitty activo en puerto ${PORT}`);
 });
